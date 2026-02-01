@@ -6,8 +6,7 @@ from typing import Callable, Optional
 from dataclasses import dataclass
 
 from src.network_detect import NetworkSettings, detect_network_settings
-from src.panos_upgrade import TARGET_VERSIONS
-from src.utils import validate_ip_address, validate_password
+from src.utils import validate_ip_address, validate_password, validate_panos_version
 
 
 @dataclass
@@ -70,7 +69,7 @@ class PASSHPrepGUI:
         # Initialize variables
         self.new_ip_var = tk.StringVar()
         self.password_var = tk.StringVar()
-        self.version_var = tk.StringVar(value=TARGET_VERSIONS[0] if TARGET_VERSIONS else "")
+        self.version_var = tk.StringVar()
         self.subnet_var = tk.StringVar(value="255.255.255.0")
         self.gateway_var = tk.StringVar(value="192.168.1.254")
         self.dns1_var = tk.StringVar(value="8.8.8.8")
@@ -116,16 +115,12 @@ class PASSHPrepGUI:
 
         # Target PAN-OS Version
         ttk.Label(main_frame, text="Target PAN-OS Version:").grid(
-            row=row, column=0, sticky="w", pady=(0, 15)
+            row=row, column=0, sticky="w", pady=(0, 5)
         )
-        version_combo = ttk.Combobox(
-            main_frame,
-            textvariable=self.version_var,
-            values=TARGET_VERSIONS,
-            state="readonly",
-            width=27
-        )
-        version_combo.grid(row=row, column=1, sticky="w", pady=(0, 15))
+        version_frame = ttk.Frame(main_frame)
+        version_frame.grid(row=row, column=1, sticky="w", pady=(0, 5))
+        ttk.Entry(version_frame, textvariable=self.version_var, width=20).pack(side="left")
+        ttk.Label(version_frame, text="(e.g., 11.2.4 or 11.2.10-h2)", font=("", 8)).pack(side="left", padx=5)
         row += 1
 
         # Separator
@@ -252,8 +247,12 @@ class PASSHPrepGUI:
             return msg
 
         # Validate version
-        if not self.version_var.get():
+        version = self.version_var.get().strip()
+        if not version:
             return "Target PAN-OS version is required"
+        valid, msg = validate_panos_version(version)
+        if not valid:
+            return msg
 
         # Validate subnet
         subnet = self.subnet_var.get().strip()
@@ -297,7 +296,7 @@ class PASSHPrepGUI:
         config = SetupConfig(
             new_ip=self.new_ip_var.get().strip(),
             new_password=self.password_var.get(),
-            target_version=self.version_var.get(),
+            target_version=self.version_var.get().strip(),
             subnet_mask=self.subnet_var.get().strip(),
             gateway=self.gateway_var.get().strip(),
             dns_servers=dns_servers

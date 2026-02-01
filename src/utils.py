@@ -135,3 +135,33 @@ def validate_password(password: str) -> tuple[bool, str]:
     if not any(c.isdigit() for c in password):
         return False, "Password must contain at least one number"
     return True, ""
+
+
+def validate_panos_version(version: str) -> tuple[bool, str]:
+    """
+    Validate PAN-OS version format.
+    Returns (is_valid, error_message).
+
+    Valid formats:
+    - X.Y.Z (e.g., 11.2.4)
+    - X.Y.Z-hN (e.g., 11.2.10-h2)
+    """
+    import re
+
+    version = version.strip()
+
+    if not version:
+        return False, "Version is required"
+
+    # Pattern: major.minor.patch or major.minor.patch-hN
+    pattern = r'^\d+\.\d+\.\d+(-h\d+)?$'
+
+    if not re.match(pattern, version):
+        return False, "Invalid version format. Use X.Y.Z (e.g., 11.2.4) or X.Y.Z-hN (e.g., 11.2.10-h2)"
+
+    # Extract major version and validate it's reasonable (9-99)
+    major = int(version.split('.')[0])
+    if major < 9 or major > 99:
+        return False, "Major version should be between 9 and 99"
+
+    return True, ""

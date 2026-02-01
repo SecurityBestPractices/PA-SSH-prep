@@ -48,7 +48,7 @@ pyinstaller --onefile --windowed --name PA-SSH-prep ^
 2. Run `PA-SSH-prep.exe`
 3. Enter the **new management IP** for the firewall
 4. Enter a **new admin password** (min 8 chars, must include uppercase, lowercase, and number)
-5. Select the **target PAN-OS version** from the dropdown
+5. Enter the **target PAN-OS version** (e.g., `11.2.10-h2` or `12.1.4`)
 6. Review the auto-detected network settings (edit if needed)
 7. Click **OK** to start the setup process
 
@@ -75,18 +75,18 @@ The application will:
 The application automatically handles required upgrade steps:
 
 ```
-9.0.x → 9.1.x → 10.0.x → 10.1.x → 10.2.x → 11.0.x → 11.1.x → 11.2.x
+9.0.x → 9.1.x → 10.0.x → 10.1.x → 10.2.x → 11.0.x → 11.1.x → 11.2.x → 12.1.x
 ```
+
+Note: The base version for 12.1 is 12.1.2 (not 12.1.0).
 
 Each major version upgrade requires a reboot. The application waits for the firewall to come back online before continuing.
 
-## Supported Target Versions
+## Version Format
 
-- 11.2.x (11.2.0 - 11.2.4)
-- 11.1.x (11.1.0 - 11.1.5)
-- 11.0.x (11.0.0 - 11.0.6)
-- 10.2.x (10.2.0 - 10.2.10)
-- 10.1.x (10.1.0 - 10.1.14)
+Enter the target version in one of these formats:
+- `X.Y.Z` - Standard release (e.g., `11.2.4`, `12.1.4`)
+- `X.Y.Z-hN` - Hotfix release (e.g., `11.2.10-h2`)
 
 ## Technology Stack
 
