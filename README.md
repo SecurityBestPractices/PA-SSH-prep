@@ -95,6 +95,24 @@ Enter the target version in one of these formats:
 - **tkinter** - GUI framework (built into Python)
 - **PyInstaller** - Packages as standalone Windows executable
 
+## Testing
+
+Run the test suite with pytest:
+
+```bash
+# Install dependencies (includes pytest)
+pip install -r requirements.txt
+
+# Run all tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run a specific test file
+pytest tests/test_utils.py
+```
+
 ## Troubleshooting
 
 | Error | Solution |
