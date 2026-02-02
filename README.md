@@ -1,5 +1,7 @@
 # PA-SSH-prep
 
+![Coverage](coverage.svg)
+
 Windows GUI application that automates initial Palo Alto Networks firewall setup via SSH.
 
 ## Features
@@ -109,9 +111,14 @@ pytest
 # Run with verbose output
 pytest -v
 
+# Run with coverage report
+pytest --cov=src --cov-report=term-missing
+
 # Run a specific test file
 pytest tests/test_utils.py
 ```
+
+The test suite includes 312 tests with 98% code coverage.
 
 ## Troubleshooting
 

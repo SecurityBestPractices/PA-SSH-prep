@@ -89,6 +89,18 @@ class TestVersion:
         v2 = Version.parse("10.2.4")
         assert v1 >= v2
 
+    def test_comparison_with_non_version(self):
+        """Test Version.__eq__ returns NotImplemented for non-Version objects."""
+        v1 = Version.parse("10.2.4")
+        result = v1.__eq__("10.2.4")
+        assert result is NotImplemented
+
+        result = v1.__eq__(10)
+        assert result is NotImplemented
+
+        result = v1.__eq__(None)
+        assert result is NotImplemented
+
 
 class TestGetUpgradePath:
     """Tests for get_upgrade_path function."""
@@ -129,6 +141,12 @@ class TestGetUpgradePath:
         # 9.1.x -> 11.2.x requires many steps
         path = get_upgrade_path("9.1.0", "11.2.4")
         assert len(path) >= 3  # Multiple major version jumps
+
+    def test_upgrade_from_unknown_version(self):
+        """Test upgrade from a version not in UPGRADE_PATHS goes directly to target."""
+        # 8.1 is not in UPGRADE_PATHS, so should go directly to target if in same major.minor
+        path = get_upgrade_path("8.1.0", "8.1.5")
+        assert path == ["8.1.5"]
 
 
 class TestUpgradePaths:

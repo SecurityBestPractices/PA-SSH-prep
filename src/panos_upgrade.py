@@ -422,6 +422,10 @@ class PANOSUpgrader:
             self._update_progress(f"Upgrade to {target_version} complete!")
             return True
 
+        except Exception as e:
+            logger.error(f"Upgrade failed: {e}")
+            return False
+
         finally:
             self.disconnect()
 

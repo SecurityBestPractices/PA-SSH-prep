@@ -1,6 +1,7 @@
 """Tests for src/utils.py"""
 
 import pytest
+from unittest.mock import patch, Mock
 from src.utils import (
     validate_ip_address,
     validate_subnet_mask,
@@ -8,6 +9,9 @@ from src.utils import (
     validate_panos_version,
     format_duration,
     get_error_suggestion,
+    setup_logging,
+    beep_error,
+    beep_success,
 )
 
 
@@ -55,6 +59,13 @@ class TestValidateSubnetMask:
         assert validate_subnet_mask("255.0.255.0") is False
         assert validate_subnet_mask("192.168.1.1") is False
         assert validate_subnet_mask("0.255.255.255") is False
+
+    def test_invalid_subnet_mask_not_ip(self):
+        """Test subnet mask validation with non-IP format strings."""
+        assert validate_subnet_mask("invalid") is False
+        assert validate_subnet_mask("") is False
+        assert validate_subnet_mask("256.255.255.0") is False
+        assert validate_subnet_mask("255.255.255") is False
 
 
 class TestValidatePassword:
@@ -203,3 +214,62 @@ class TestGetErrorSuggestion:
         error = Exception("Something went wrong")
         suggestion = get_error_suggestion(error)
         assert "logs" in suggestion
+
+    def test_host_key_error(self):
+        error = Exception("Host key verification failed")
+        suggestion = get_error_suggestion(error)
+        assert "host key" in suggestion.lower() or "new" in suggestion.lower()
+
+    def test_no_route_error(self):
+        error = Exception("No route to host")
+        suggestion = get_error_suggestion(error)
+        assert "network" in suggestion.lower()
+
+    def test_commit_error(self):
+        error = Exception("Commit failed")
+        suggestion = get_error_suggestion(error)
+        assert "commit" in suggestion.lower() or "settings" in suggestion.lower()
+
+
+class TestSetupLogging:
+    """Tests for setup_logging function."""
+
+    def test_setup_logging_basic(self):
+        logger = setup_logging()
+        assert logger is not None
+        assert logger.name == "PA-SSH-prep"
+
+    def test_setup_logging_with_file(self, tmp_path):
+        log_file = tmp_path / "test.log"
+        logger = setup_logging(log_file=str(log_file))
+        assert logger is not None
+
+        # Log something
+        logger.info("Test message")
+
+        # Check file was created
+        assert log_file.exists()
+
+
+class TestBeepFunctions:
+    """Tests for beep_error and beep_success functions."""
+
+    @patch('src.utils.HAS_WINSOUND', True)
+    @patch('src.utils.winsound')
+    def test_beep_error_with_winsound(self, mock_winsound):
+        beep_error()
+        mock_winsound.Beep.assert_called_with(1000, 500)
+
+    @patch('src.utils.HAS_WINSOUND', False)
+    def test_beep_error_without_winsound(self):
+        beep_error()  # Should not raise
+
+    @patch('src.utils.HAS_WINSOUND', True)
+    @patch('src.utils.winsound')
+    def test_beep_success_with_winsound(self, mock_winsound):
+        beep_success()
+        assert mock_winsound.Beep.call_count == 2
+
+    @patch('src.utils.HAS_WINSOUND', False)
+    def test_beep_success_without_winsound(self):
+        beep_success()  # Should not raise

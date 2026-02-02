@@ -1,11 +1,15 @@
 """Tests for src/network_detect.py"""
 
 import pytest
+from unittest.mock import patch, Mock
 from src.network_detect import (
     parse_ipconfig_output,
     is_same_subnet,
     get_default_gateway_for_ip,
     NetworkSettings,
+    run_ipconfig,
+    can_reach_host,
+    detect_network_settings,
 )
 
 
@@ -154,3 +158,154 @@ class TestNetworkSettings:
 
         assert len(settings.dns_servers) == 1
         assert settings.dns_servers[0] == "8.8.8.8"
+
+
+class TestRunIpconfig:
+    """Tests for run_ipconfig function."""
+
+    @patch('src.network_detect.subprocess.run')
+    def test_run_ipconfig_success(self, mock_run):
+        mock_run.return_value = Mock(stdout="Windows IP Configuration\n")
+
+        result = run_ipconfig()
+
+        assert "Windows IP Configuration" in result
+        mock_run.assert_called_once()
+
+    @patch('src.network_detect.subprocess.run')
+    def test_run_ipconfig_failure(self, mock_run):
+        mock_run.side_effect = Exception("Command failed")
+
+        with pytest.raises(RuntimeError, match="Failed to run ipconfig"):
+            run_ipconfig()
+
+
+class TestCanReachHost:
+    """Tests for can_reach_host function."""
+
+    @patch('src.network_detect.socket.socket')
+    def test_can_reach_host_success(self, mock_socket_class):
+        mock_socket = Mock()
+        mock_socket.connect_ex.return_value = 0
+        mock_socket_class.return_value = mock_socket
+
+        result = can_reach_host("192.168.1.1", port=22, timeout=2.0)
+
+        assert result is True
+        mock_socket.close.assert_called()
+
+    @patch('src.network_detect.socket.socket')
+    def test_can_reach_host_failure(self, mock_socket_class):
+        mock_socket = Mock()
+        mock_socket.connect_ex.return_value = 1  # Connection failed
+        mock_socket_class.return_value = mock_socket
+
+        result = can_reach_host("192.168.1.1")
+
+        assert result is False
+
+    @patch('src.network_detect.socket.socket')
+    def test_can_reach_host_exception(self, mock_socket_class):
+        mock_socket_class.side_effect = Exception("Socket error")
+
+        result = can_reach_host("192.168.1.1")
+
+        assert result is False
+
+
+class TestDetectNetworkSettings:
+    """Tests for detect_network_settings function."""
+
+    @patch('src.network_detect.run_ipconfig')
+    def test_detect_network_settings_found(self, mock_ipconfig):
+        mock_ipconfig.return_value = """
+Ethernet adapter Ethernet:
+
+   IPv4 Address. . . . . . . . . . . : 192.168.1.100
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . : 192.168.1.1
+   DNS Servers . . . . . . . . . . . : 8.8.8.8
+                                       8.8.4.4
+"""
+        result = detect_network_settings("192.168.1.1")
+
+        assert result is not None
+        assert result.subnet_mask == "255.255.255.0"
+        assert result.gateway == "192.168.1.1"
+        assert "8.8.8.8" in result.dns_servers
+
+    @patch('src.network_detect.run_ipconfig')
+    def test_detect_network_settings_no_match(self, mock_ipconfig):
+        mock_ipconfig.return_value = """
+Ethernet adapter Ethernet:
+
+   IPv4 Address. . . . . . . . . . . : 10.0.0.50
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . : 10.0.0.1
+"""
+        result = detect_network_settings("192.168.1.1")
+
+        # Should return defaults
+        assert result is not None
+        assert result.subnet_mask == "255.255.255.0"
+
+    @patch('src.network_detect.run_ipconfig')
+    def test_detect_network_settings_adapter_no_ip(self, mock_ipconfig):
+        """Test with an adapter that has no IP addresses (Media disconnected)."""
+        mock_ipconfig.return_value = """
+Ethernet adapter Local Area Connection:
+
+   Media State . . . . . . . . . . . : Media disconnected
+   Connection-specific DNS Suffix  . :
+
+Ethernet adapter Ethernet:
+
+   IPv4 Address. . . . . . . . . . . : 192.168.1.100
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . : 192.168.1.1
+"""
+        result = detect_network_settings("192.168.1.1")
+
+        assert result is not None
+        assert result.subnet_mask == "255.255.255.0"
+        assert result.gateway == "192.168.1.1"
+
+    @patch('src.network_detect.run_ipconfig')
+    def test_detect_network_settings_exception(self, mock_ipconfig):
+        mock_ipconfig.side_effect = Exception("Failed")
+
+        result = detect_network_settings("192.168.1.1")
+
+        # Should return defaults
+        assert result is not None
+        assert result.subnet_mask == "255.255.255.0"
+        assert result.gateway == "192.168.1.254"
+
+    @patch('src.network_detect.run_ipconfig')
+    def test_detect_network_settings_empty_dns(self, mock_ipconfig):
+        mock_ipconfig.return_value = """
+Ethernet adapter Ethernet:
+
+   IPv4 Address. . . . . . . . . . . : 192.168.1.100
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . : 192.168.1.1
+"""
+        result = detect_network_settings("192.168.1.1")
+
+        assert result is not None
+        # Should have default DNS
+        assert len(result.dns_servers) == 2
+
+    @patch('src.network_detect.run_ipconfig')
+    def test_detect_network_settings_missing_gateway(self, mock_ipconfig):
+        mock_ipconfig.return_value = """
+Ethernet adapter Ethernet:
+
+   IPv4 Address. . . . . . . . . . . : 192.168.1.100
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+"""
+        result = detect_network_settings("192.168.1.1")
+
+        assert result is not None
+        # Should have default gateway
+        assert "192.168.1" in result.gateway
