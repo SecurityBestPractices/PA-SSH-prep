@@ -147,16 +147,16 @@ class ContentUpdater:
                 self._update_progress("Content install job started, waiting for completion...")
                 return self._wait_for_install_completion(timeout)
 
+            if "already installed" in output.lower():
+                self._update_progress("Latest content already installed")
+                return output
+
             if "successfully" in output.lower() or "installed" in output.lower():
                 self._update_progress("Content installed successfully")
                 return output
 
             if "failed" in output.lower():
                 raise RuntimeError(f"Content installation failed: {output}")
-
-            if "already installed" in output.lower():
-                self._update_progress("Latest content already installed")
-                return output
 
             return output
 
